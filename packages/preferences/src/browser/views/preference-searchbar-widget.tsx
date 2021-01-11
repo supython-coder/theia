@@ -20,6 +20,7 @@ import { Disposable } from '@theia/core/lib/common/disposable';
 import * as React from 'react';
 import { debounce } from 'lodash';
 import { PreferencesEventService } from '../util/preference-event-service';
+import { MessageService } from '@theia/core';
 
 @injectable()
 export class PreferencesSearchbarWidget extends ReactWidget {
@@ -27,8 +28,10 @@ export class PreferencesSearchbarWidget extends ReactWidget {
     static readonly LABEL = 'Settings Header';
 
     protected searchbarRef: React.RefObject<HTMLInputElement> = React.createRef<HTMLInputElement>();
+    protected searchCount: number = 0;
 
     @inject(PreferencesEventService) protected readonly preferencesEventService: PreferencesEventService;
+    @inject(MessageService) protected readonly messageService: MessageService;
 
     @postConstruct()
     protected init(): void {
@@ -45,6 +48,8 @@ export class PreferencesSearchbarWidget extends ReactWidget {
     protected search = debounce((value: string) => {
         this.preferencesEventService.onSearch.fire({ query: value });
         this.update();
+        this.preferencesEventService.onResultChanged.event(count => this.searchCount = count);
+        this.messageService.info(`Result Count: ${this.searchCount}`);
     }, 200);
 
     focus(): void {

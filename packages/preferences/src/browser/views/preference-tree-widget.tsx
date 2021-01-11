@@ -58,12 +58,24 @@ export class PreferencesTreeWidget extends TreeWidget {
         this.preferencesEventService.onDisplayChanged.event(didChangeTree => {
             if (didChangeTree) {
                 this.updateDisplay();
+                this.preferencesEventService.onResultChanged.fire(this.calculateCount());
             }
         });
         this.preferencesEventService.onEditorScroll.event(e => {
             this.handleEditorScroll(e.firstVisibleChildId);
         });
         this.id = PreferencesTreeWidget.ID;
+    }
+
+    protected calculateCount(): number {
+        let count: number = 0;
+        const root = this.model.root;
+        if (CompositeTreeNode.is(root)) {
+            for (const child of root.children) {
+                count += this.calculateVisibleLeaves(child);
+            }
+        }
+        return count;
     }
 
     protected handleEditorScroll(firstVisibleChildId: string): void {
