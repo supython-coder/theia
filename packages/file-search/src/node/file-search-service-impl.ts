@@ -26,6 +26,8 @@ import { RawProcessFactory } from '@theia/process/lib/node';
 import { FileSearchService } from '../common/file-search-service';
 import * as path from 'path';
 
+const WHITESPACE_SEPARATOR = ' ';
+
 @injectable()
 export class FileSearchServiceImpl implements FileSearchService {
 
@@ -81,23 +83,34 @@ export class FileSearchServiceImpl implements FileSearchService {
         }
 
         const stringPattern = searchPattern.toLocaleLowerCase();
+        const stringPatterns = stringPattern.split(WHITESPACE_SEPARATOR);
+
         await Promise.all(Object.keys(roots).map(async root => {
             try {
                 const rootUri = new URI(root);
                 const rootPath = FileUri.fsPath(rootUri);
                 const rootOptions = roots[root];
+
                 await this.doFind(rootUri, rootOptions, candidate => {
+
+                    // Determine if the candidate matches any of the patterns exactly, or by fuzzy matching.
+                    const patternExists = stringPatterns.some(pattern => candidate.toLocaleLowerCase().indexOf(pattern) !== -1);
+                    const fuzzyPatternExists = stringPatterns.some(pattern => fuzzy.test(pattern, candidate));
+
                     // Convert OS-native candidate path to a file URI string
                     const fileUri = FileUri.create(path.resolve(rootPath, candidate)).toString();
+
                     // Skip results that have already been matched.
                     if (exactMatches.has(fileUri) || fuzzyMatches.has(fileUri)) {
                         return;
                     }
-                    if (!searchPattern || searchPattern === '*' || candidate.toLocaleLowerCase().indexOf(stringPattern) !== -1) {
+
+                    if (!searchPattern || searchPattern === '*' || patternExists) {
                         exactMatches.add(fileUri);
-                    } else if (opts.fuzzyMatch && fuzzy.test(searchPattern, candidate)) {
+                    } else if (opts.fuzzyMatch && fuzzyPatternExists) {
                         fuzzyMatches.add(fileUri);
                     }
+
                     // Preemptively terminate the search when the list of exact matches reaches the limit.
                     if (exactMatches.size === opts.limit) {
                         cancellationSource.cancel();
