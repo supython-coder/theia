@@ -195,7 +195,7 @@ declare module '@theia/plugin' {
          */
         command?: string;
         /**
-        * Title of the command invocation, like "Add local varible 'foo'".
+        * Title of the command invocation, like "Add local variable 'foo'".
         */
         title?: string;
         /**
@@ -478,7 +478,7 @@ declare module '@theia/plugin' {
          * Builder-function that appends a tabstop (`$1`, `$2` etc) to
          * the [`value`](#SnippetString.value) of this snippet string.
          *
-         * @param number The number of this tabstop, defaults to an auto-incremet
+         * @param number The number of this tabstop, defaults to an auto-increment
          * value starting at 1.
          * @return This snippet string.
          */
@@ -490,7 +490,7 @@ declare module '@theia/plugin' {
          *
          * @param value The value of this placeholder - either a string or a function
          * with which a nested snippet can be created.
-         * @param number The number of this tabstop, defaults to an auto-incremet
+         * @param number The number of this tabstop, defaults to an auto-increment
          * value starting at 1.
          * @return This snippet string.
          */
@@ -852,7 +852,7 @@ declare module '@theia/plugin' {
 
         /**
          * Render options applied to the current decoration. For performance reasons, keep the
-         * number of decoration specific options small, and use decoration types whereever possible.
+         * number of decoration specific options small, and use decoration types wherever possible.
          */
         renderOptions?: DecorationInstanceRenderOptions;
     }
@@ -1128,7 +1128,7 @@ declare module '@theia/plugin' {
 
         /**
          * Insert a [snippet](#SnippetString) and put the editor into snippet mode. "Snippet mode"
-         * means the editor adds placeholders and additionals cursors so that the user can complete
+         * means the editor adds placeholders and additional cursors so that the user can complete
          * or accept the snippet.
          *
          * @param snippet The snippet to insert in this edit.
@@ -1338,7 +1338,7 @@ declare module '@theia/plugin' {
          * [Uri.parse](#Uri.parse).
          *
          * @param skipEncoding Do not percentage-encode the result, defaults to `false`. Note that
-         *  the `#` and `?` characters occuring in the path will always be encoded.
+         *  the `#` and `?` characters occurring in the path will always be encoded.
          * @returns A string representation of this Uri.
          */
         toString(skipEncoding?: boolean): string;
@@ -1392,7 +1392,7 @@ declare module '@theia/plugin' {
         readonly version: number;
 
         /**
-         * `true` if there are unpersisted changes.
+         * `true` if there are un-persisted changes.
          */
         readonly isDirty: boolean;
 
@@ -1474,7 +1474,7 @@ declare module '@theia/plugin' {
 
         /**
          * Get a word-range at the given position. By default words are defined by
-         * common separators, like space, -, _, etc. In addition, per languge custom
+         * common separators, like space, -, _, etc. In addition, per language custom
          * [word definitions](#LanguageConfiguration.wordPattern) can be defined. It
          * is also possible to provide a custom regular expression.
          *
@@ -2857,9 +2857,9 @@ declare module '@theia/plugin' {
         close(): void;
 
         /**
-         * Implement to handle inputing data in the terminal.
+         * Implement to handle inputting data in the terminal.
          *
-         * @param data The inputing data.
+         * @param data The inputting data.
          */
         handleInput?(data: string): void;
 
@@ -3397,7 +3397,7 @@ declare module '@theia/plugin' {
      */
     interface WebviewPanelSerializer<T = unknown> {
         /**
-         * Restore a webview panel from its seriailzed `state`.
+         * Restore a webview panel from its serialized `state`.
          *
          * Called when a serialized webview first becomes visible.
          *
@@ -4537,7 +4537,7 @@ declare module '@theia/plugin' {
          * The *effective* value (returned by [`get`](#WorkspaceConfiguration.get))
          * is computed like this: `defaultValue` overwritten by `globalValue`,
          * `globalValue` overwritten by `workspaceValue`. `workspaceValue` overwritten by `workspaceFolderValue`.
-         * Refer to [Settings Inheritence](https://code.visualstudio.com/docs/getstarted/settings)
+         * Refer to [Settings Inheritance](https://code.visualstudio.com/docs/getstarted/settings)
          * for more information.
          *
          * *Note:* The configuration name must denote a leaf in the configuration tree
@@ -4562,7 +4562,7 @@ declare module '@theia/plugin' {
          * has no observable effect in that workspace, but in others. Setting a workspace value
          * in the presence of a more specific folder value has no observable effect for the resources
          * under respective [folder](#workspace.workspaceFolders), but in others. Refer to
-         * [Settings Inheritence](https://code.visualstudio.com/docs/getstarted/settings) for more information.
+         * [Settings Inheritance](https://code.visualstudio.com/docs/getstarted/settings) for more information.
          *
          * *Note 2:* To remove a configuration value use `undefined`, like so: `config.update('somekey', undefined)`
          *
@@ -5164,7 +5164,7 @@ declare module '@theia/plugin' {
          * files change on disk, e.g triggered by another application, or when using the
          * [`workspace.fs`](#FileSystem)-api.
          *
-         * *Note 2:* When this event is fired, edits to files thare are being created cannot be applied.
+         * *Note 2:* When this event is fired, edits to files that are being created cannot be applied.
          */
         export const onWillCreateFiles: Event<FileWillCreateEvent>;
 
@@ -5325,10 +5325,10 @@ declare module '@theia/plugin' {
 
         /**
          * Find text in files across all [workspace folders] in the workspace
-         * @param query What to search 
-         * @param optionsOrCallback 
-         * @param callbackOrToken 
-         * @param token 
+         * @param query What to search
+         * @param optionsOrCallback
+         * @param callbackOrToken
+         * @param token
          */
         export function findTextInFiles(query: TextSearchQuery, optionsOrCallback: FindTextInFilesOptions | ((result: TextSearchResult) => void),
             callbackOrToken?: CancellationToken | ((result: TextSearchResult) => void), token?: CancellationToken): Promise<TextSearchComplete>
@@ -5351,7 +5351,7 @@ declare module '@theia/plugin' {
          * cause failure of the operation.
          *
          * When applying a workspace edit that consists only of text edits an 'all-or-nothing'-strategy is used.
-         * A workspace edit with resource creations or deletions aborts the operation, e.g. consective edits will
+         * A workspace edit with resource creations or deletions aborts the operation, e.g. consecutive edits will
          * not be attempted, when a single edit fails.
          *
          * @param edit A workspace edit.
@@ -5541,10 +5541,10 @@ declare module '@theia/plugin' {
          *
          * If the extension is running remotely, this function automatically establishes a port forwarding tunnel
          * from the local machine to `target` on the remote and returns a local uri to the tunnel. The lifetime of
-         * the port fowarding tunnel is managed by VS Code and the tunnel can be closed by the user.
+         * the port forwarding tunnel is managed by VS Code and the tunnel can be closed by the user.
          *
          * Extensions should not cache the result of `asExternalUri` as the resolved uri may become invalid due to
-         * a system or user action — for example, in remote cases, a user may close a port forwardng tunnel
+         * a system or user action — for example, in remote cases, a user may close a port forwarding tunnel
          * that was opened by `asExternalUri`.
          *
          * *Note* that uris passed through `openExternal` are automatically resolved and you should not call `asExternalUri`
@@ -5729,7 +5729,7 @@ declare module '@theia/plugin' {
      */
     export interface IndentationRule {
         /**
-         * If a line matches this pattern, then all the lines after it should be unindented once (until another rule matches).
+         * If a line matches this pattern, then all the lines after it should be un-indented once (until another rule matches).
          */
         decreaseIndentPattern: RegExp;
         /**
@@ -10058,7 +10058,7 @@ declare module '@theia/plugin' {
     }
 
     /**
-     * The call hierarchy provider interface describes the constract between extensions
+     * The call hierarchy provider interface describes the contract between extensions
      * and the call hierarchy feature which allows to browse calls and caller of function,
      * methods, constructor etc.
      */

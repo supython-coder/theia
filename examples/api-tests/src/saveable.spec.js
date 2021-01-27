@@ -144,7 +144,7 @@ describe('Saveable', function () {
             resource.saveContentChanges = saveContentChanges;
         }
 
-        assert.isTrue(incrementalUpdate, 'should tried to update incrementaly');
+        assert.isTrue(incrementalUpdate, 'should tried to update incrementally');
         assert.isTrue(outOfSync, 'file should be out of sync');
         assert.equal(outOfSyncCount, 1, 'user should be prompted only once with out of sync dialog');
         assert.isTrue(Saveable.isDirty(widget), 'should be dirty after rejected save');

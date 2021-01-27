@@ -1447,7 +1447,7 @@ declare module monaco.contextKeyService {
     // https://github.com/theia-ide/vscode/blob/standalone/0.20.x/src/vs/platform/contextkey/common/contextkey.ts#L827
     export interface IContextKeyService {
         // vs code has another object as argument https://github.com/theia-ide/vscode/blob/standalone/0.20.x/src/vs/platform/contextkey/common/contextkey.ts#L809
-        // which contains restcicted number of HTMLElement methods
+        // which contains restricted number of HTMLElement methods
         createScoped(target?: HTMLElement): IContextKeyService;
         getContext(target?: HTMLElement): IContext;
         createKey<T>(key: string, defaultValue: T | undefined): IContextKey<T>;
