@@ -111,7 +111,8 @@ export class FileSearchServiceImpl implements FileSearchService {
             return [];
         }
         // Return the list of results limited by the search limit.
-        return [...exactMatches, ...fuzzyMatches].slice(0, opts.limit);
+        const sortedFuzzyMatches = [...fuzzyMatches].sort((a, b) => this.compareUris(a, b, searchPattern));
+        return [...exactMatches, ...sortedFuzzyMatches].slice(0, opts.limit);
     }
 
     private doFind(rootUri: URI, options: FileSearchService.BaseOptions, accept: (fileUri: string) => void, token: CancellationToken): Promise<void> {
@@ -167,6 +168,69 @@ export class FileSearchServiceImpl implements FileSearchService {
             args.push('--no-ignore');
         }
         return args;
+    }
+
+    private compareUris(a: string, b: string, pattern: string): number {
+
+        /**
+         * Normalize a given string.
+         *
+         * @param str the raw string value.
+         * @returns the normalized string value.
+         */
+        function normalize(str: string): string {
+            return str.trim().toLowerCase();
+        }
+
+        /**
+         * Score a given string.
+         *
+         * @param str the string to score on.
+         * @returns the score.
+         */
+        function score(str: string): number {
+            const match = fuzzy.match(query, str);
+            // eslint-disable-next-line no-null/no-null
+            return (match === null) ? 0 : match.score;
+        }
+
+        // Normalize the user query.
+        const query: string = normalize(pattern);
+
+        // Score the item labels.
+        const scoreA: number = score(a);
+        const scoreB: number = score(b);
+
+        // If both label scores are identical, perform additional computation.
+        if (scoreA === scoreB) {
+
+            // Favor the label which have the smallest substring index.
+            const indexA: number = a.indexOf(query);
+            const indexB: number = b.indexOf(query);
+
+            if (indexA === indexB) {
+
+                // Favor the result with the shortest label length.
+                if (a.length !== b.length) {
+                    return (a.length < b.length) ? -1 : 1;
+                }
+
+                // Fallback to the alphabetical order.
+                const comparison = a.localeCompare(b);
+
+                // If the alphabetical comparison is equal, call `compareItems` recursively using the `URI` member instead.
+                if (comparison === 0) {
+                    return this.compareUris(a, b, pattern);
+                }
+
+                return a.localeCompare(b);
+            }
+
+            return indexA - indexB;
+        }
+
+        return scoreB - scoreA;
+
     }
 
 }
