@@ -15,7 +15,6 @@
  ********************************************************************************/
 
 import * as cp from 'child_process';
-import * as fuzzy from 'fuzzy';
 import * as readline from 'readline';
 import { rgPath } from 'vscode-ripgrep';
 import { injectable, inject } from 'inversify';
@@ -72,34 +71,36 @@ export class FileSearchServiceImpl implements FileSearchService {
             }
         }
 
-        const exactMatches = new Set<string>();
-        const fuzzyMatches = new Set<string>();
+        const filenameMatches = new Set<string>();
+        const pathMatches = new Set<string>();
 
         if (isWindows) {
             // Allow users on Windows to search for paths using either forwards or backwards slash
             searchPattern = searchPattern.replace(/\//g, '\\');
         }
 
-        const stringPattern = searchPattern.toLocaleLowerCase();
         await Promise.all(Object.keys(roots).map(async root => {
             try {
                 const rootUri = new URI(root);
                 const rootPath = FileUri.fsPath(rootUri);
                 const rootOptions = roots[root];
                 await this.doFind(rootUri, rootOptions, candidate => {
-                    // Convert OS-native candidate path to a file URI string
-                    const fileUri = FileUri.create(path.resolve(rootPath, candidate)).toString();
-                    // Skip results that have already been matched.
-                    if (exactMatches.has(fileUri) || fuzzyMatches.has(fileUri)) {
-                        return;
+                    const uri = FileUri.create(path.resolve(rootPath, candidate));
+                    const uriStr = uri.toString();
+
+                    if (filenameMatches.has(uriStr) || pathMatches.has(uriStr)) {
+                        return; // skip results already present in either collection.
                     }
-                    if (!searchPattern || searchPattern === '*' || candidate.toLocaleLowerCase().indexOf(stringPattern) !== -1) {
-                        exactMatches.add(fileUri);
-                    } else if (opts.fuzzyMatch && fuzzy.test(searchPattern, candidate)) {
-                        fuzzyMatches.add(fileUri);
+
+                    const filename = uri.path.base;
+                    if (filename.indexOf(searchPattern) !== -1) {
+                        filenameMatches.add(uriStr);
+                    } else {
+                        pathMatches.add(uriStr);
                     }
+
                     // Preemptively terminate the search when the list of exact matches reaches the limit.
-                    if (exactMatches.size === opts.limit) {
+                    if (filenameMatches.size >= opts.limit) {
                         cancellationSource.cancel();
                     }
                 }, token);
@@ -107,11 +108,13 @@ export class FileSearchServiceImpl implements FileSearchService {
                 console.error('Failed to search:', root, e);
             }
         }));
+
         if (clientToken && clientToken.isCancellationRequested) {
             return [];
         }
+
         // Return the list of results limited by the search limit.
-        return [...exactMatches, ...fuzzyMatches].slice(0, opts.limit);
+        return [...filenameMatches, ...pathMatches].slice(0, opts.limit);
     }
 
     private doFind(rootUri: URI, options: FileSearchService.BaseOptions, accept: (fileUri: string) => void, token: CancellationToken): Promise<void> {

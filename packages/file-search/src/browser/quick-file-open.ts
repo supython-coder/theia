@@ -199,7 +199,7 @@ export class QuickFileOpenService implements QuickOpenModel, QuickOpenHandler {
             this.fileSearchService.find(lookFor, {
                 rootUris: roots.map(r => r.resource.toString()),
                 fuzzyMatch: true,
-                limit: 200,
+                limit: 512,
                 useGitIgnore: this.hideIgnoredFiles,
                 excludePatterns: this.hideIgnoredFiles
                     ? Object.keys(this.fsPreferences['files.exclude'])
@@ -255,8 +255,12 @@ export class QuickFileOpenService implements QuickOpenModel, QuickOpenHandler {
          */
         function score(str: string): number {
             const match = fuzzy.match(query, str);
-            // eslint-disable-next-line no-null/no-null
-            return (match === null) ? 0 : match.score;
+            if (!match) {
+                return 0;
+            }
+            return match.score === Infinity ?
+                1000
+                : match.score;
         }
 
         // Get the item's member values for comparison.
