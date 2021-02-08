@@ -790,7 +790,7 @@ export class ScmExtImpl implements ScmExt {
         return group.$executeResourceCommand(handle, preserveFocus);
     }
 
-    $validateInput(sourceControlHandle: number, value: string, cursorPosition: number): Promise<[string, number] | undefined> {
+    async $validateInput(sourceControlHandle: number, value: string, cursorPosition: number): Promise<[string, number] | undefined> {
         // this.logService.trace('ExtHostSCM#$validateInput', sourceControlHandle);
 
         const sourceControl = this._sourceControls.get(sourceControlHandle);
@@ -803,13 +803,11 @@ export class ScmExtImpl implements ScmExt {
             return Promise.resolve(undefined);
         }
 
-        return new Promise<theia.SourceControlInputBoxValidation | undefined>(() => sourceControl.inputBox.validateInput!(value, cursorPosition)).then(result => {
-            if (!result) {
-                return Promise.resolve(undefined);
-            }
-
-            return Promise.resolve<[string, number]>([result.message, result.type]);
-        });
+        const result = await sourceControl.inputBox.validateInput!(value, cursorPosition);
+        if (!result) {
+            return Promise.resolve(undefined);
+        }
+        return [result.message, result.type];
     }
 
     $setSelectedSourceControl(selectedSourceControlHandle: number | undefined): Promise<void> {

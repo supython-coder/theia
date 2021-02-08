@@ -231,26 +231,26 @@ declare module '@theia/plugin' {
 
     // #region @joaomoreno: SCM validation
 
-    // /**
-    //  * Represents the validation type of the Source Control input.
-    //  */
-    // export enum SourceControlInputBoxValidationType {
-    //
-    //     /**
-    //      * Something not allowed by the rules of a language or other means.
-    //      */
-    //     Error = 0,
-    //
-    //     /**
-    //      * Something suspicious but allowed.
-    //      */
-    //     Warning = 1,
-    //
-    //     /**
-    //      * Something to inform about but not a problem.
-    //      */
-    //     Information = 2
-    // }
+    /**
+     * Represents the validation type of the Source Control input.
+     */
+    export enum SourceControlInputBoxValidationType {
+
+        /**
+         * Something not allowed by the rules of a language or other means.
+         */
+        Error = 0,
+
+        /**
+         * Something suspicious but allowed.
+         */
+        Warning = 1,
+
+        /**
+         * Something to inform about but not a problem.
+         */
+        Information = 2
+    }
 
     export interface SourceControlInputBoxValidation {
 

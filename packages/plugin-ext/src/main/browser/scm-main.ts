@@ -113,8 +113,8 @@ export class PluginScmResource implements ScmResource {
 
 export class PluginScmProvider implements ScmProvider {
 
-    private static ID_HANDLE = 0;
-    private _id = `scm${PluginScmProvider.ID_HANDLE++}`;
+    // private static ID_HANDLE = 0;
+    private _id = this.contextValue;
     get id(): string { return this._id; }
 
     readonly groups: PluginScmResourceGroup[] = [];
@@ -320,7 +320,7 @@ export class ScmMainImpl implements ScmMain {
         const repository = this.scmService.registerScmProvider(provider, {
                 input: {
                     validator: async value => {
-                        const result = await this._proxy.$validateInput(handle, value, 0);
+                        const result = await this._proxy.$validateInput(handle, value, value.length);
                         return result && { message: result[0], type: result[1] };
                     }
                 }
