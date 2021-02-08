@@ -451,12 +451,6 @@ export class ScmMainImpl implements ScmMain {
     }
 
     $setInputBoxVisibility(sourceControlHandle: number, visible: boolean): void {
-        const repository = this._repositories.get(sourceControlHandle);
-
-        if (!repository) {
-            return;
-        }
-
-        // repository.input.visible = visible;
+        //
     }
 }

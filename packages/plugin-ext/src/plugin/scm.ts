@@ -31,6 +31,7 @@ import { Command } from '../common/plugin-api-rpc-model';
 import { RPCProtocol } from '../common/rpc-protocol';
 import { comparePaths } from '../common/paths-util';
 import { URI } from 'vscode-uri';
+import { ScmCommandArg } from '../common/plugin-api-rpc';
 type ProviderHandle = number;
 type GroupHandle = number;
 type ResourceStateHandle = number;
@@ -273,28 +274,11 @@ export class ExtHostSCMInputBox implements theia.SourceControlInputBox {
         // this._proxy.$setValidationProviderIsEnabled(this._sourceControlHandle, !!fn);
     }
 
-    private _visible: boolean = true;
-
-    get visible(): boolean {
-        return this._visible;
-    }
-
-    set visible(visible: boolean) {
-        visible = !!visible;
-
-        if (this._visible === visible) {
-            return;
-        }
-
-        this._visible = visible;
-        this._proxy.$setInputBoxVisibility(this._sourceControlHandle, visible);
-    }
-
     constructor(private _extension: Plugin, private _proxy: ScmMain, private _sourceControlHandle: number) {
         // noop
     }
 
-    $onInputBoxValueChange(value: string): void {
+    onInputBoxValueChange(value: string): void {
         this.updateValue(value);
     }
 
@@ -369,7 +353,7 @@ class ExtHostSourceControlResourceGroup implements theia.SourceControlResourceGr
     $executeResourceCommand(handle: number, preserveFocus: boolean): Promise<void> {
         const command = this._resourceStatesCommandsMap.get(handle);
 
-        if (!command || !command.command) {
+        if (!command) {
             return Promise.resolve(undefined);
         }
 
@@ -664,8 +648,8 @@ export class ScmExtImpl implements ScmExt {
     private _sourceControls: Map<ProviderHandle, ExtHostSourceControl> = new Map<ProviderHandle, ExtHostSourceControl>();
     private _sourceControlsByExtension: Map<string, ExtHostSourceControl[]> = new Map<string, ExtHostSourceControl[]>();
 
-    // private readonly _onDidChangeActiveProvider = new Emitter<theia.SourceControl>();
-    // get onDidChangeActiveProvider(): Event<theia.SourceControl> { return this._onDidChangeActiveProvider.event; }
+    private readonly _onDidChangeActiveProvider = new Emitter<theia.SourceControl>();
+    get onDidChangeActiveProvider(): Event<theia.SourceControl> { return this._onDidChangeActiveProvider.event; }
 
     private _selectedSourceControlHandle: number | undefined;
 
@@ -678,40 +662,23 @@ export class ScmExtImpl implements ScmExt {
         // this._telemetry = mainContext.getProxy(MainContext.MainThreadTelemetry);
 
         _commands.registerArgumentProcessor({
-            processArgument: arg => {
-                if (arg && arg.$mid === 3) {
-                    const sourceControl = this._sourceControls.get(arg.sourceControlHandle);
-
-                    if (!sourceControl) {
-                        return arg;
-                    }
-
-                    const group = sourceControl.getResourceGroup(arg.groupHandle);
-
-                    if (!group) {
-                        return arg;
-                    }
-
-                    return group.getResourceState(arg.handle);
-                } else if (arg && arg.$mid === 4) {
-                    const sourceControl = this._sourceControls.get(arg.sourceControlHandle);
-
-                    if (!sourceControl) {
-                        return arg;
-                    }
-
-                    return sourceControl.getResourceGroup(arg.groupHandle);
-                } else if (arg && arg.$mid === 5) {
-                    const sourceControl = this._sourceControls.get(arg.handle);
-
-                    if (!sourceControl) {
-                        return arg;
-                    }
-
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            processArgument: (arg: any) => {
+                if (!ScmCommandArg.is(arg)) {
+                    return arg;
+                }
+                const sourceControl = this._sourceControls.get(arg.sourceControlHandle);
+                if (!sourceControl) {
+                    return undefined;
+                }
+                if (typeof arg.resourceGroupHandle !== 'number') {
                     return sourceControl;
                 }
-
-                return arg;
+                const resourceGroup = sourceControl.getResourceGroup(arg.resourceGroupHandle);
+                if (typeof arg.resourceStateHandle !== 'number') {
+                    return resourceGroup;
+                }
+                return resourceGroup && resourceGroup.getResourceState(arg.resourceStateHandle);
             }
         });
     }
@@ -768,7 +735,7 @@ export class ScmExtImpl implements ScmExt {
             return Promise.resolve(undefined);
         }
 
-        sourceControl.inputBox.$onInputBoxValueChange(value);
+        sourceControl.inputBox.onInputBoxValueChange(value);
         return Promise.resolve(undefined);
     }
 
