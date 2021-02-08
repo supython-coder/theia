@@ -76,10 +76,11 @@ export class ScmService {
     }
 
     findRepository(uri: URI): ScmRepository | undefined {
-        const reposSorted = this.repositories.sort(
-            (ra: ScmRepository, rb: ScmRepository) => rb.provider.rootUri.length - ra.provider.rootUri.length
-        );
-        return reposSorted.find(repo => new URI(repo.provider.rootUri).isEqualOrParent(uri));
+        // const reposSorted = this.repositories.sort(
+        //     (ra: ScmRepository, rb: ScmRepository) => rb.provider.rootUri.length - ra.provider.rootUri.length
+        // );
+        // return reposSorted.find(repo => new URI(repo.provider.rootUri).isEqualOrParent(uri));
+        return undefined;
     }
 
     registerScmProvider(provider: ScmProvider, options: ScmProviderOptions = {}): ScmRepository {

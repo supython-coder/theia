@@ -49,7 +49,7 @@ export interface ScmResource {
     /** The uri of the underlying resource inside the workspace. */
     readonly sourceUri: URI;
     readonly decorations?: ScmResourceDecorations;
-    open(): Promise<void>;
+    open(preserveFocus: boolean): Promise<void>;
 
     readonly group: ScmResourceGroup;
 }

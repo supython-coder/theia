@@ -688,10 +688,13 @@ export namespace ScmCommandArg {
 export interface ScmExt {
     createSourceControl(plugin: Plugin, id: string, label: string, rootUri?: theia.Uri): theia.SourceControl;
     getLastInputBox(plugin: Plugin): theia.SourceControlInputBox | undefined;
-    $updateInputBox(sourceControlHandle: number, message: string): Promise<void>;
-    $executeResourceCommand(sourceControlHandle: number, groupHandle: number, resourceHandle: number): Promise<void>;
-    $provideOriginalResource(sourceControlHandle: number, uri: string, token: CancellationToken): Promise<UriComponents | undefined>;
-    $setSourceControlSelection(sourceControlHandle: number, selected: boolean): Promise<void>;
+    // $updateInputBox(sourceControlHandle: number, message: string): Promise<void>;
+    $onInputBoxValueChange(sourceControlHandle: number, value: string): Promise<void>;
+    $executeResourceCommand(sourceControlHandle: number, groupHandle: number, handle: number, preserveFocus: boolean): Promise<void>;
+    $validateInput(sourceControlHandle: number, value: string, cursorPosition: number): Promise<[string, number] | undefined>;
+    $setSelectedSourceControl(selectedSourceControlHandle: number | undefined): Promise<void>;
+    $provideOriginalResource(sourceControlHandle: number, uri: string, token: theia.CancellationToken): Promise<UriComponents | undefined>;
+    // $setSourceControlSelection(sourceControlHandle: number, selected: boolean): Promise<void>;
 }
 
 export namespace TimelineCommandArg {
@@ -760,18 +763,22 @@ export interface DecorationData {
 }
 
 export interface ScmMain {
-    $registerSourceControl(sourceControlHandle: number, id: string, label: string, rootUri?: string): Promise<void>
-    $updateSourceControl(sourceControlHandle: number, features: SourceControlProviderFeatures): Promise<void>;
-    $unregisterSourceControl(sourceControlHandle: number): Promise<void>;
+    $registerSourceControl(handle: number, id: string, label: string, rootUri: UriComponents | undefined): void;
+    $updateSourceControl(handle: number, features: SourceControlProviderFeatures): void;
+    $unregisterSourceControl(handle: number): void;
 
-    $registerGroup(sourceControlHandle: number, groupHandle: number, id: string, label: string): Promise<void>;
-    $updateGroup(sourceControlHandle: number, groupHandle: number, features: SourceControlGroupFeatures): Promise<void>;
-    $updateGroupLabel(sourceControlHandle: number, groupHandle: number, label: string): Promise<void>;
-    $updateResourceState(sourceControlHandle: number, groupHandle: number, resources: SourceControlResourceState[]): Promise<void>;
-    $unregisterGroup(sourceControlHandle: number, groupHandle: number): Promise<void>;
+    $registerGroups(sourceControlHandle: number, groups: [number /* handle*/, string /* id*/, string /* label*/,
+        SourceControlGroupFeatures][], splices: SCMRawResourceSplices[]): void;
+    $updateGroup(sourceControlHandle: number, handle: number, features: SourceControlGroupFeatures): void;
+    $updateGroupLabel(sourceControlHandle: number, handle: number, label: string): void;
+    $unregisterGroup(sourceControlHandle: number, handle: number): void;
 
-    $setInputBoxValue(sourceControlHandle: number, value: string): Promise<void>;
-    $setInputBoxPlaceholder(sourceControlHandle: number, placeholder: string): Promise<void>;
+    $spliceResourceStates(sourceControlHandle: number, splices: SCMRawResourceSplices[]): void;
+
+    $setInputBoxValue(sourceControlHandle: number, value: string): void;
+    $setInputBoxPlaceholder(sourceControlHandle: number, placeholder: string): void;
+    $setInputBoxVisibility(sourceControlHandle: number, visible: boolean): void;
+    // $setValidationProviderIsEnabled(sourceControlHandle: number, enabled: boolean): void;
 }
 
 export interface SourceControlProviderFeatures {
@@ -785,6 +792,28 @@ export interface SourceControlProviderFeatures {
 export interface SourceControlGroupFeatures {
     hideWhenEmpty: boolean | undefined;
 }
+
+export type SCMRawResource = [
+    number /* handle */,
+    UriComponents /* resourceUri */,
+    UriComponents[] /* icons: light, dark*/,
+    string /* tooltip*/,
+    boolean /* strike through*/,
+    boolean /* faded*/,
+    string /* context value*/,
+        Command | undefined /* command*/
+];
+
+export type SCMRawResourceSplice = [
+    number /* start */,
+    number /* delete count */,
+    SCMRawResource[]
+];
+
+export type SCMRawResourceSplices = [
+    number, /* handle*/
+    SCMRawResourceSplice[]
+];
 
 export interface SourceControlResourceState {
     readonly handle: number

@@ -385,7 +385,7 @@ export class ScmTreeWidget extends TreeWidget {
 
     protected async openResource(resource: ScmResource): Promise<EditorWidget | undefined> {
         try {
-            await resource.open();
+            await resource.open(true);
         } catch (e) {
             console.error('Failed to open a SCM resource', e);
             return undefined;
@@ -557,7 +557,7 @@ export class ScmResourceComponent extends ScmElement<ScmResourceComponent.Props>
     protected open = () => {
         const resource = this.props.model.getResourceFromNode(this.props.treeNode);
         if (resource) {
-            resource.open();
+            resource.open(true);
         }
     };
 
