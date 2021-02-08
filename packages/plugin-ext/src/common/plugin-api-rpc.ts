@@ -767,8 +767,7 @@ export interface ScmMain {
     $updateSourceControl(handle: number, features: SourceControlProviderFeatures): void;
     $unregisterSourceControl(handle: number): void;
 
-    $registerGroups(sourceControlHandle: number, groups: [number /* handle*/, string /* id*/, string /* label*/,
-        SourceControlGroupFeatures][], splices: ScmRawResourceSplices[]): void;
+    $registerGroups(sourceControlHandle: number, groups: ScmRawResourceGroup[], splices: ScmRawResourceSplices[]): void;
     $updateGroup(sourceControlHandle: number, handle: number, features: SourceControlGroupFeatures): void;
     $updateGroupLabel(sourceControlHandle: number, handle: number, label: string): void;
     $unregisterGroup(sourceControlHandle: number, handle: number): void;
@@ -800,6 +799,13 @@ export interface ScmRawResource {
     faded: boolean,
     contextValue: string,
     command: Command | undefined
+}
+
+export interface ScmRawResourceGroup {
+    handle: number,
+    id: string,
+    label: string,
+    features: SourceControlGroupFeatures
 }
 
 export interface ScmRawResourceSplice {

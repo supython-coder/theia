@@ -19,7 +19,7 @@ import { Emitter, Event } from '@theia/core/lib/common/event';
 import {
     Plugin, PLUGIN_RPC_CONTEXT,
     ScmExt,
-    ScmMain, ScmRawResource,
+    ScmMain, ScmRawResource, ScmRawResourceGroup,
     ScmRawResourceSplice, ScmRawResourceSplices,
     SourceControlGroupFeatures
 } from '../common';
@@ -571,7 +571,7 @@ class ExtHostSourceControl implements theia.SourceControl {
 
     // @debounce(100)
     eventuallyAddResourceGroups(): void {
-        const groups: [number /* handle*/, string /* id*/, string /* label*/, SourceControlGroupFeatures][] = [];
+        const groups: ScmRawResourceGroup[] = [];
         const splices: ScmRawResourceSplices[] = [];
 
         for (const [group, disposable] of this.createdResourceGroups) {
@@ -589,7 +589,8 @@ class ExtHostSourceControl implements theia.SourceControl {
                 this._proxy.$unregisterGroup(this.handle, group.handle);
             });
 
-            groups.push([group.handle, group.id, group.label, group.features]);
+            const { handle , id, label, features } = group;
+            groups.push({ handle , id, label, features });
 
             const snapshot = group._takeResourceStateSnapshot();
 

@@ -20,7 +20,7 @@ import {
     SourceControlGroupFeatures,
     ScmMain,
     SourceControlProviderFeatures,
-    ScmRawResourceSplices
+    ScmRawResourceSplices, ScmRawResourceGroup
 } from '../../common/plugin-api-rpc';
 import { ScmProvider, ScmResource, ScmResourceDecorations, ScmResourceGroup, ScmCommand } from '@theia/scm/lib/browser/scm-provider';
 import { ScmRepository } from '@theia/scm/lib/browser/scm-repository';
@@ -175,8 +175,9 @@ export class PluginScmProvider implements ScmProvider {
         }
     }
 
-    $registerGroups(_groups: [number /* handle*/, string /* id*/, string /* label*/, SourceControlGroupFeatures][]): void {
-        const groups = _groups.map(([handle, id, label, features]) => {
+    $registerGroups(_groups: ScmRawResourceGroup[]): void {
+        const groups = _groups.map( _group => {
+            const { handle, id, label, features } = _group;
             const group = new PluginScmResourceGroup(
                 this.handle,
                 handle,
@@ -376,8 +377,7 @@ export class ScmMainImpl implements ScmMain {
         this._repositories.delete(handle);
     }
 
-    $registerGroups(sourceControlHandle: number, groups: [number /* handle*/, string /* id*/, string /* label*/,
-        SourceControlGroupFeatures][], splices: ScmRawResourceSplices[]): void {
+    $registerGroups(sourceControlHandle: number, groups: ScmRawResourceGroup[], splices: ScmRawResourceSplices[]): void {
         const repository = this._repositories.get(sourceControlHandle);
 
         if (!repository) {
