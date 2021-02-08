@@ -19,8 +19,8 @@ import { Emitter, Event } from '@theia/core/lib/common/event';
 import {
     Plugin, PLUGIN_RPC_CONTEXT,
     ScmExt,
-    ScmMain, SCMRawResource,
-    SCMRawResourceSplice, SCMRawResourceSplices,
+    ScmMain, ScmRawResource,
+    ScmRawResourceSplice, ScmRawResourceSplices,
     SourceControlGroupFeatures
 } from '../common';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
@@ -221,11 +221,11 @@ function equals<T>(one: ReadonlyArray<T> | undefined, other: ReadonlyArray<T> | 
     return true;
 }
 
-export interface IValidateInput {
+export interface ValidateInput {
     (value: string, cursorPosition: number): theia.ProviderResult<theia.SourceControlInputBoxValidation | undefined | null>;
 }
 
-export class ExtHostSCMInputBox implements theia.SourceControlInputBox {
+export class ScmInputBoxImpl implements theia.SourceControlInputBox {
 
     private _value: string = '';
 
@@ -255,15 +255,15 @@ export class ExtHostSCMInputBox implements theia.SourceControlInputBox {
         this._placeholder = placeholder;
     }
 
-    private _validateInput: IValidateInput | undefined;
+    private _validateInput: ValidateInput | undefined;
 
-    get validateInput(): IValidateInput | undefined {
+    get validateInput(): ValidateInput | undefined {
         // checkProposedApiEnabled(this._extension);
 
         return this._validateInput;
     }
 
-    set validateInput(fn: IValidateInput | undefined) {
+    set validateInput(fn: ValidateInput | undefined) {
         // checkProposedApiEnabled(this._extension);
 
         if (fn && typeof fn !== 'function') {
@@ -360,11 +360,11 @@ class ExtHostSourceControlResourceGroup implements theia.SourceControlResourceGr
         return new Promise(() => this._commands.executeCommand(command.command!, ...(command.arguments || []), preserveFocus));
     }
 
-    _takeResourceStateSnapshot(): SCMRawResourceSplice[] {
+    _takeResourceStateSnapshot(): ScmRawResourceSplice[] {
         const snapshot = [...this._resourceStates].sort(compareResourceStates);
         const diffs = sortedDiff(this._resourceSnapshot, snapshot, compareResourceStates);
 
-        const splices = diffs.map<Splice<{ rawResource: SCMRawResource, handle: number }>>(diff => {
+        const splices = diffs.map<Splice<{ rawResource: ScmRawResource, handle: number }>>(diff => {
             const toInsert = diff.toInsert.map(r => {
                 const handle = this._resourceHandlePool++;
                 this._resourceStatesMap.set(handle, r);
@@ -399,7 +399,7 @@ class ExtHostSourceControlResourceGroup implements theia.SourceControlResourceGr
                 const faded = r.decorations && !!r.decorations.faded;
                 const contextValue = r.contextValue || '';
 
-                const rawResource = [handle, sourceUri, icons, tooltip, strikeThrough, faded, contextValue, command] as SCMRawResource;
+                const rawResource = { handle, sourceUri, icons, tooltip, strikeThrough, faded, contextValue, command } as ScmRawResource;
 
                 return { rawResource, handle };
             });
@@ -408,7 +408,11 @@ class ExtHostSourceControlResourceGroup implements theia.SourceControlResourceGr
         });
 
         const rawResourceSplices = splices
-            .map(({ start, deleteCount, toInsert }) => [start, deleteCount, toInsert.map(i => i.rawResource)] as SCMRawResourceSplice);
+            .map(({ start, deleteCount, toInsert }) => ({
+                    start: start,
+                    deleteCount: deleteCount,
+                    rawResources: toInsert.map(i => i.rawResource)
+                } as ScmRawResourceSplice));
 
         const reverseSplices = splices.reverse();
 
@@ -451,8 +455,8 @@ class ExtHostSourceControl implements theia.SourceControl {
         return this._rootUri;
     }
 
-    private _inputBox: ExtHostSCMInputBox;
-    get inputBox(): ExtHostSCMInputBox { return this._inputBox; }
+    private _inputBox: ScmInputBoxImpl;
+    get inputBox(): ScmInputBoxImpl { return this._inputBox; }
 
     private _count: number | undefined = undefined;
 
@@ -550,7 +554,7 @@ class ExtHostSourceControl implements theia.SourceControl {
         private _label: string,
         private _rootUri?: theia.Uri
     ) {
-        this._inputBox = new ExtHostSCMInputBox(_extension, this._proxy, this.handle);
+        this._inputBox = new ScmInputBoxImpl(_extension, this._proxy, this.handle);
         this._proxy.$registerSourceControl(this.handle, _id, _label, _rootUri);
     }
 
@@ -568,7 +572,7 @@ class ExtHostSourceControl implements theia.SourceControl {
     // @debounce(100)
     eventuallyAddResourceGroups(): void {
         const groups: [number /* handle*/, string /* id*/, string /* label*/, SourceControlGroupFeatures][] = [];
-        const splices: SCMRawResourceSplices[] = [];
+        const splices: ScmRawResourceSplices[] = [];
 
         for (const [group, disposable] of this.createdResourceGroups) {
             disposable.dispose();
@@ -590,7 +594,7 @@ class ExtHostSourceControl implements theia.SourceControl {
             const snapshot = group._takeResourceStateSnapshot();
 
             if (snapshot.length > 0) {
-                splices.push([group.handle, snapshot]);
+                splices.push( { handle: group.handle, splices: snapshot });
             }
 
             this._groups.set(group.handle, group);
@@ -602,7 +606,7 @@ class ExtHostSourceControl implements theia.SourceControl {
 
     // @debounce(100)
     eventuallyUpdateResourceStates(): void {
-        const splices: SCMRawResourceSplices[] = [];
+        const splices: ScmRawResourceSplices[] = [];
 
         this.updatedResourceGroups.forEach(group => {
             const snapshot = group._takeResourceStateSnapshot();
@@ -611,7 +615,7 @@ class ExtHostSourceControl implements theia.SourceControl {
                 return;
             }
 
-            splices.push([group.handle, snapshot]);
+            splices.push({ handle: group.handle, splices: snapshot });
         });
 
         if (splices.length > 0) {
@@ -704,7 +708,7 @@ export class ScmExtImpl implements ScmExt {
     }
 
     // Deprecated
-    getLastInputBox(extension: Plugin): ExtHostSCMInputBox | undefined {
+    getLastInputBox(extension: Plugin): ScmInputBoxImpl | undefined {
         // this.logService.trace('ExtHostSCM#getLastInputBox', extension.identifier.value);
 
         const sourceControls = this._sourceControlsByExtension.get(extension.model.id);

@@ -768,12 +768,12 @@ export interface ScmMain {
     $unregisterSourceControl(handle: number): void;
 
     $registerGroups(sourceControlHandle: number, groups: [number /* handle*/, string /* id*/, string /* label*/,
-        SourceControlGroupFeatures][], splices: SCMRawResourceSplices[]): void;
+        SourceControlGroupFeatures][], splices: ScmRawResourceSplices[]): void;
     $updateGroup(sourceControlHandle: number, handle: number, features: SourceControlGroupFeatures): void;
     $updateGroupLabel(sourceControlHandle: number, handle: number, label: string): void;
     $unregisterGroup(sourceControlHandle: number, handle: number): void;
 
-    $spliceResourceStates(sourceControlHandle: number, splices: SCMRawResourceSplices[]): void;
+    $spliceResourceStates(sourceControlHandle: number, splices: ScmRawResourceSplices[]): void;
 
     $setInputBoxValue(sourceControlHandle: number, value: string): void;
     $setInputBoxPlaceholder(sourceControlHandle: number, placeholder: string): void;
@@ -791,27 +791,27 @@ export interface SourceControlGroupFeatures {
     hideWhenEmpty: boolean | undefined;
 }
 
-export type SCMRawResource = [
-    number /* handle */,
-    UriComponents /* resourceUri */,
-    UriComponents[] /* icons: light, dark*/,
-    string /* tooltip*/,
-    boolean /* strike through*/,
-    boolean /* faded*/,
-    string /* context value*/,
-        Command | undefined /* command*/
-];
+export interface ScmRawResource {
+    handle: number,
+    sourceUri: UriComponents,
+    icons: UriComponents[],
+    tooltip: string,
+    strikeThrough: boolean,
+    faded: boolean,
+    contextValue: string,
+    command: Command | undefined
+}
 
-export type SCMRawResourceSplice = [
-    number /* start */,
-    number /* delete count */,
-    SCMRawResource[]
-];
+export interface ScmRawResourceSplice {
+    start: number,
+    deleteCount: number,
+    rawResources: ScmRawResource[]
+}
 
-export type SCMRawResourceSplices = [
-    number, /* handle*/
-    SCMRawResourceSplice[]
-];
+export interface ScmRawResourceSplices {
+    handle: number,
+    splices: ScmRawResourceSplice[]
+}
 
 export interface SourceControlResourceState {
     readonly handle: number

@@ -20,7 +20,7 @@ import {
     SourceControlGroupFeatures,
     ScmMain,
     SourceControlProviderFeatures,
-    SCMRawResourceSplices
+    ScmRawResourceSplices
 } from '../../common/plugin-api-rpc';
 import { ScmProvider, ScmResource, ScmResourceDecorations, ScmResourceGroup, ScmCommand } from '@theia/scm/lib/browser/scm-provider';
 import { ScmRepository } from '@theia/scm/lib/browser/scm-repository';
@@ -213,8 +213,10 @@ export class PluginScmProvider implements ScmProvider {
         group.$updateGroupLabel(label);
     }
 
-    $spliceGroupResourceStates(splices: SCMRawResourceSplices[]): void {
-        for (const [groupHandle, groupSlices] of splices) {
+    $spliceGroupResourceStates(splices: ScmRawResourceSplices[]): void {
+        for (const splice of splices) {
+            const groupHandle = splice.handle;
+            const groupSlices = splice.splices;
             const group = this._groupsByHandle[groupHandle];
 
             if (!group) {
@@ -225,9 +227,10 @@ export class PluginScmProvider implements ScmProvider {
             // reverse the splices sequence in order to apply them correctly
             groupSlices.reverse();
 
-            for (const [start, deleteCount, rawResources] of groupSlices) {
+            for (const groupSlice of groupSlices) {
+                const { start, deleteCount, rawResources } = groupSlice;
                 const resources = rawResources.map(rawResource => {
-                    const [handle, sourceUri, icons, tooltip, strikeThrough, faded, contextValue, command] = rawResource;
+                    const { handle, sourceUri, icons, tooltip, strikeThrough, faded, contextValue, command } = rawResource;
                     const icon = icons[0];
                     const iconDark = icons[1] || icon;
                     const decorations = {
@@ -374,7 +377,7 @@ export class ScmMainImpl implements ScmMain {
     }
 
     $registerGroups(sourceControlHandle: number, groups: [number /* handle*/, string /* id*/, string /* label*/,
-        SourceControlGroupFeatures][], splices: SCMRawResourceSplices[]): void {
+        SourceControlGroupFeatures][], splices: ScmRawResourceSplices[]): void {
         const repository = this._repositories.get(sourceControlHandle);
 
         if (!repository) {
@@ -408,7 +411,7 @@ export class ScmMainImpl implements ScmMain {
         provider.$updateGroupLabel(groupHandle, label);
     }
 
-    $spliceResourceStates(sourceControlHandle: number, splices: SCMRawResourceSplices[]): void {
+    $spliceResourceStates(sourceControlHandle: number, splices: ScmRawResourceSplices[]): void {
         const repository = this._repositories.get(sourceControlHandle);
 
         if (!repository) {
