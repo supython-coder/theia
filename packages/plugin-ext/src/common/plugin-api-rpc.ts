@@ -763,9 +763,9 @@ export interface DecorationData {
 }
 
 export interface ScmMain {
-    $registerSourceControl(handle: number, id: string, label: string, rootUri: UriComponents | undefined): void;
-    $updateSourceControl(handle: number, features: SourceControlProviderFeatures): void;
-    $unregisterSourceControl(handle: number): void;
+    $registerSourceControl(handle: number, id: string, label: string, rootUri: UriComponents | undefined): Promise<void>;
+    $updateSourceControl(handle: number, features: SourceControlProviderFeatures): Promise<void>;
+    $unregisterSourceControl(handle: number): Promise<void>;
 
     $registerGroups(sourceControlHandle: number, groups: ScmRawResourceGroup[], splices: ScmRawResourceSplices[]): void;
     $updateGroup(sourceControlHandle: number, handle: number, features: SourceControlGroupFeatures): void;

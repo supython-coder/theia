@@ -319,7 +319,7 @@ export class ScmMainImpl implements ScmMain {
         this._disposables.dispose();
     }
 
-    $registerSourceControl(handle: number, id: string, label: string, rootUri: UriComponents | undefined): void {
+    async $registerSourceControl(handle: number, id: string, label: string, rootUri: UriComponents | undefined): Promise<void> {
         const provider = new PluginScmProvider(this._proxy, handle, id, label, rootUri ? vscodeURI.revive(rootUri) : undefined);
         const repository = this.scmService.registerScmProvider(provider, {
                 input: {
@@ -352,7 +352,7 @@ export class ScmMainImpl implements ScmMain {
         this._repositoryDisposables.set(handle, disposables);
     }
 
-    $updateSourceControl(handle: number, features: SourceControlProviderFeatures): void {
+    async $updateSourceControl(handle: number, features: SourceControlProviderFeatures): Promise<void> {
         const repository = this._repositories.get(handle);
 
         if (!repository) {
@@ -363,7 +363,7 @@ export class ScmMainImpl implements ScmMain {
         provider.$updateSourceControl(features);
     }
 
-    $unregisterSourceControl(handle: number): void {
+    async $unregisterSourceControl(handle: number): Promise<void> {
         const repository = this._repositories.get(handle);
 
         if (!repository) {

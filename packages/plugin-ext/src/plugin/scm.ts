@@ -221,7 +221,7 @@ function equals<T>(one: ReadonlyArray<T> | undefined, other: ReadonlyArray<T> | 
     return true;
 }
 
-export interface ValidateInput {
+interface ValidateInput {
     (value: string, cursorPosition: number): theia.ProviderResult<theia.SourceControlInputBoxValidation | undefined | null>;
 }
 
@@ -234,14 +234,14 @@ export class ScmInputBoxImpl implements theia.SourceControlInputBox {
     }
 
     set value(value: string) {
-        this._proxy.$setInputBoxValue(this._sourceControlHandle, value);
+        this.proxy.$setInputBoxValue(this.sourceControlHandle, value);
         this.updateValue(value);
     }
 
-    private readonly _onDidChange = new Emitter<string>();
+    private readonly onDidChangeEmitter = new Emitter<string>();
 
     get onDidChange(): Event<string> {
-        return this._onDidChange.event;
+        return this.onDidChangeEmitter.event;
     }
 
     private _placeholder: string = '';
@@ -251,30 +251,25 @@ export class ScmInputBoxImpl implements theia.SourceControlInputBox {
     }
 
     set placeholder(placeholder: string) {
-        this._proxy.$setInputBoxPlaceholder(this._sourceControlHandle, placeholder);
+        this.proxy.$setInputBoxPlaceholder(this.sourceControlHandle, placeholder);
         this._placeholder = placeholder;
     }
 
     private _validateInput: ValidateInput | undefined;
 
     get validateInput(): ValidateInput | undefined {
-        // checkProposedApiEnabled(this._extension);
-
         return this._validateInput;
     }
 
     set validateInput(fn: ValidateInput | undefined) {
-        // checkProposedApiEnabled(this._extension);
-
         if (fn && typeof fn !== 'function') {
-            throw new Error(`[${this._extension.model.id}]: Invalid SCM input box validation function`);
+            throw new Error(`[${this.plugin.model.id}]: Invalid SCM input box validation function`);
         }
 
         this._validateInput = fn;
-        // this._proxy.$setValidationProviderIsEnabled(this._sourceControlHandle, !!fn);
     }
 
-    constructor(private _extension: Plugin, private _proxy: ScmMain, private _sourceControlHandle: number) {
+    constructor(private plugin: Plugin, private proxy: ScmMain, private sourceControlHandle: number) {
         // noop
     }
 
@@ -284,44 +279,44 @@ export class ScmInputBoxImpl implements theia.SourceControlInputBox {
 
     private updateValue(value: string): void {
         this._value = value;
-        this._onDidChange.fire(value);
+        this.onDidChangeEmitter.fire(value);
     }
 }
 
-class ExtHostSourceControlResourceGroup implements theia.SourceControlResourceGroup {
+class SsmResourceGroupImpl implements theia.SourceControlResourceGroup {
 
-    private static _handlePool: number = 0;
-    private _resourceHandlePool: number = 0;
+    private static handlePool: number = 0;
+    private resourceHandlePool: number = 0;
     private _resourceStates: theia.SourceControlResourceState[] = [];
 
-    private _resourceStatesMap = new Map<ResourceStateHandle, theia.SourceControlResourceState>();
-    private _resourceStatesCommandsMap = new Map<ResourceStateHandle, theia.Command>();
-    private _resourceStatesDisposablesMap = new Map<ResourceStateHandle, Disposable>();
+    private resourceStatesMap = new Map<ResourceStateHandle, theia.SourceControlResourceState>();
+    private resourceStatesCommandsMap = new Map<ResourceStateHandle, theia.Command>();
+    private resourceStatesDisposablesMap = new Map<ResourceStateHandle, Disposable>();
 
-    private readonly _onDidUpdateResourceStates = new Emitter<void>();
-    readonly onDidUpdateResourceStates = this._onDidUpdateResourceStates.event;
+    private readonly onDidUpdateResourceStatesEmitter = new Emitter<void>();
+    readonly onDidUpdateResourceStates = this.onDidUpdateResourceStatesEmitter.event;
 
     private _disposed = false;
     get disposed(): boolean { return this._disposed; }
-    private readonly _onDidDispose = new Emitter<void>();
-    readonly onDidDispose = this._onDidDispose.event;
+    private readonly onDidDisposeEmitter = new Emitter<void>();
+    readonly onDidDispose = this.onDidDisposeEmitter.event;
 
-    private _handlesSnapshot: number[] = [];
-    private _resourceSnapshot: theia.SourceControlResourceState[] = [];
+    private handlesSnapshot: number[] = [];
+    private resourceSnapshot: theia.SourceControlResourceState[] = [];
 
     get id(): string { return this._id; }
 
     get label(): string { return this._label; }
     set label(label: string) {
         this._label = label;
-        this._proxy.$updateGroupLabel(this._sourceControlHandle, this.handle, label);
+        this.proxy.$updateGroupLabel(this.sourceControlHandle, this.handle, label);
     }
 
     private _hideWhenEmpty: boolean | undefined = undefined;
     get hideWhenEmpty(): boolean | undefined { return this._hideWhenEmpty; }
     set hideWhenEmpty(hideWhenEmpty: boolean | undefined) {
         this._hideWhenEmpty = hideWhenEmpty;
-        this._proxy.$updateGroup(this._sourceControlHandle, this.handle, this.features);
+        this.proxy.$updateGroup(this.sourceControlHandle, this.handle, this.features);
     }
 
     get features(): SourceControlGroupFeatures {
@@ -333,41 +328,41 @@ class ExtHostSourceControlResourceGroup implements theia.SourceControlResourceGr
     get resourceStates(): theia.SourceControlResourceState[] { return [...this._resourceStates]; }
     set resourceStates(resources: theia.SourceControlResourceState[]) {
         this._resourceStates = [...resources];
-        this._onDidUpdateResourceStates.fire();
+        this.onDidUpdateResourceStatesEmitter.fire();
     }
 
-    readonly handle = ExtHostSourceControlResourceGroup._handlePool++;
+    readonly handle = SsmResourceGroupImpl.handlePool++;
 
     constructor(
-        private _proxy: ScmMain,
-        private _commands: CommandRegistryImpl,
-        private _sourceControlHandle: number,
+        private proxy: ScmMain,
+        private commands: CommandRegistryImpl,
+        private sourceControlHandle: number,
         private _id: string,
         private _label: string,
     ) { }
 
     getResourceState(handle: number): theia.SourceControlResourceState | undefined {
-        return this._resourceStatesMap.get(handle);
+        return this.resourceStatesMap.get(handle);
     }
 
-    $executeResourceCommand(handle: number, preserveFocus: boolean): Promise<void> {
-        const command = this._resourceStatesCommandsMap.get(handle);
+    executeResourceCommand(handle: number, preserveFocus: boolean): Promise<void> {
+        const command = this.resourceStatesCommandsMap.get(handle);
 
         if (!command) {
             return Promise.resolve(undefined);
         }
 
-        return new Promise(() => this._commands.executeCommand(command.command!, ...(command.arguments || []), preserveFocus));
+        return new Promise(() => this.commands.executeCommand(command.command!, ...(command.arguments || []), preserveFocus));
     }
 
-    _takeResourceStateSnapshot(): ScmRawResourceSplice[] {
+    takeResourceStateSnapshot(): ScmRawResourceSplice[] {
         const snapshot = [...this._resourceStates].sort(compareResourceStates);
-        const diffs = sortedDiff(this._resourceSnapshot, snapshot, compareResourceStates);
+        const diffs = sortedDiff(this.resourceSnapshot, snapshot, compareResourceStates);
 
         const splices = diffs.map<Splice<{ rawResource: ScmRawResource, handle: number }>>(diff => {
             const toInsert = diff.toInsert.map(r => {
-                const handle = this._resourceHandlePool++;
-                this._resourceStatesMap.set(handle, r);
+                const handle = this.resourceHandlePool++;
+                this.resourceStatesMap.set(handle, r);
 
                 const sourceUri = r.resourceUri;
                 const iconUri = getIconResource(r.decorations);
@@ -379,10 +374,10 @@ class ExtHostSourceControlResourceGroup implements theia.SourceControlResourceGr
                 if (r.command) {
                     if (r.command.command === 'theia.open' || r.command.command === 'theia.diff') {
                         const disposables = new DisposableCollection();
-                        command = this._commands.converter.toSafeCommand(r.command, disposables);
-                        this._resourceStatesDisposablesMap.set(handle, disposables);
+                        command = this.commands.converter.toSafeCommand(r.command, disposables);
+                        this.resourceStatesDisposablesMap.set(handle, disposables);
                     } else {
-                        this._resourceStatesCommandsMap.set(handle, r.command);
+                        this.resourceStatesCommandsMap.set(handle, r.command);
                     }
                 }
 
@@ -404,7 +399,8 @@ class ExtHostSourceControlResourceGroup implements theia.SourceControlResourceGr
                 return { rawResource, handle };
             });
 
-            return { start: diff.start, deleteCount: diff.deleteCount, toInsert };
+            const { start, deleteCount } = diff;
+            return { start, deleteCount, toInsert };
         });
 
         const rawResourceSplices = splices
@@ -418,30 +414,30 @@ class ExtHostSourceControlResourceGroup implements theia.SourceControlResourceGr
 
         for (const { start, deleteCount, toInsert } of reverseSplices) {
             const handles = toInsert.map(i => i.handle);
-            const handlesToDelete = this._handlesSnapshot.splice(start, deleteCount, ...handles);
+            const handlesToDelete = this.handlesSnapshot.splice(start, deleteCount, ...handles);
 
             for (const handle of handlesToDelete) {
-                this._resourceStatesMap.delete(handle);
-                this._resourceStatesCommandsMap.delete(handle);
-                this._resourceStatesDisposablesMap.get(handle)?.dispose();
-                this._resourceStatesDisposablesMap.delete(handle);
+                this.resourceStatesMap.delete(handle);
+                this.resourceStatesCommandsMap.delete(handle);
+                this.resourceStatesDisposablesMap.get(handle)?.dispose();
+                this.resourceStatesDisposablesMap.delete(handle);
             }
         }
 
-        this._resourceSnapshot = snapshot;
+        this.resourceSnapshot = snapshot;
         return rawResourceSplices;
     }
 
     dispose(): void {
         this._disposed = true;
-        this._onDidDispose.fire();
+        this.onDidDisposeEmitter.fire();
     }
 }
 
 class ExtHostSourceControl implements theia.SourceControl {
 
     private static _handlePool: number = 0;
-    private _groups: Map<GroupHandle, ExtHostSourceControlResourceGroup> = new Map<GroupHandle, ExtHostSourceControlResourceGroup>();
+    private _groups: Map<GroupHandle, SsmResourceGroupImpl> = new Map<GroupHandle, SsmResourceGroupImpl>();
 
     get id(): string {
         return this._id;
@@ -558,11 +554,11 @@ class ExtHostSourceControl implements theia.SourceControl {
         this._proxy.$registerSourceControl(this.handle, _id, _label, _rootUri);
     }
 
-    private createdResourceGroups = new Map<ExtHostSourceControlResourceGroup, Disposable>();
-    private updatedResourceGroups = new Set<ExtHostSourceControlResourceGroup>();
+    private createdResourceGroups = new Map<SsmResourceGroupImpl, Disposable>();
+    private updatedResourceGroups = new Set<SsmResourceGroupImpl>();
 
-    createResourceGroup(id: string, label: string): ExtHostSourceControlResourceGroup {
-        const group = new ExtHostSourceControlResourceGroup(this._proxy, this._commands, this.handle, id, label);
+    createResourceGroup(id: string, label: string): SsmResourceGroupImpl {
+        const group = new SsmResourceGroupImpl(this._proxy, this._commands, this.handle, id, label);
         const disposable = group.onDidDispose(() => this.createdResourceGroups.delete(group));
         this.createdResourceGroups.set(group, disposable);
         this.eventuallyAddResourceGroups();
@@ -592,7 +588,7 @@ class ExtHostSourceControl implements theia.SourceControl {
             const { handle , id, label, features } = group;
             groups.push({ handle , id, label, features });
 
-            const snapshot = group._takeResourceStateSnapshot();
+            const snapshot = group.takeResourceStateSnapshot();
 
             if (snapshot.length > 0) {
                 splices.push( { handle: group.handle, splices: snapshot });
@@ -610,7 +606,7 @@ class ExtHostSourceControl implements theia.SourceControl {
         const splices: ScmRawResourceSplices[] = [];
 
         this.updatedResourceGroups.forEach(group => {
-            const snapshot = group._takeResourceStateSnapshot();
+            const snapshot = group.takeResourceStateSnapshot();
 
             if (snapshot.length === 0) {
                 return;
@@ -626,7 +622,7 @@ class ExtHostSourceControl implements theia.SourceControl {
         this.updatedResourceGroups.clear();
     }
 
-    getResourceGroup(handle: GroupHandle): ExtHostSourceControlResourceGroup | undefined {
+    getResourceGroup(handle: GroupHandle): SsmResourceGroupImpl | undefined {
         return this._groups.get(handle);
     }
 
@@ -759,7 +755,7 @@ export class ScmExtImpl implements ScmExt {
             return Promise.resolve(undefined);
         }
 
-        return group.$executeResourceCommand(handle, preserveFocus);
+        return group.executeResourceCommand(handle, preserveFocus);
     }
 
     async $validateInput(sourceControlHandle: number, value: string, cursorPosition: number): Promise<[string, number] | undefined> {
