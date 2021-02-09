@@ -170,9 +170,9 @@ export class ScmWidget extends BaseWidget implements StatefulWidget {
     }
 
     restoreState(oldState: any): void {
-        const { commitState, changesTreeState } = oldState;
+        const { commitState } = oldState;
         this.commitWidget.restoreState(commitState);
-        this.resourceWidget.restoreState(changesTreeState);
+        // this.resourceWidget.restoreState(changesTreeState);
     }
 
     collapseScmTree(): void {

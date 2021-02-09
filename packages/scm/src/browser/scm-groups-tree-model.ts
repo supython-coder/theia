@@ -19,6 +19,7 @@ import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import { ScmService } from './scm-service';
 import { ScmTreeModel } from './scm-tree-model';
 import { ScmResourceGroup, ScmProvider } from './scm-provider';
+import { TreeNode } from '@theia/core/lib/browser/tree/tree';
 
 @injectable()
 export class ScmGroupsTreeModel extends ScmTreeModel {
@@ -51,7 +52,10 @@ export class ScmGroupsTreeModel extends ScmTreeModel {
         this.provider = provider;
         if (provider) {
             this.toDisposeOnRepositoryChange.push(provider.onDidChange(() => {
-                this.root = this.createTree();
+                const root = this.createTree();
+                if (!TreeNode.equals(root, this.root)) {
+                    this.root = root;
+                }
             }));
             this.root = this.createTree();
         }

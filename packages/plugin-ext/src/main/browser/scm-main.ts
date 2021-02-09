@@ -1,5 +1,5 @@
 /********************************************************************************
- * Copyright (C) 2019 Red Hat, Inc. and others.
+ * Copyright (C) 2019-2021 Red Hat, Inc. and others.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0 which is available at
@@ -13,6 +13,12 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
+
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+// code copied and modified from https://github.com/microsoft/vscode/blob/1.52.1/src/vs/workbench/api/browser/mainThreadSCM.ts
 
 import {
     MAIN_RPC_CONTEXT,
@@ -38,16 +44,15 @@ export class PluginScmResourceGroup implements ScmResourceGroup {
 
     readonly resources: ScmResource[] = [];
 
-    private readonly _onDidSplice = new Emitter<Splice<ScmResource>>();
-    readonly onDidSplice = this._onDidSplice.event;
+    private readonly onDidSpliceEmitter = new Emitter<Splice<ScmResource>>();
+    readonly onDidSplice = this.onDidSpliceEmitter.event;
 
     get hideWhenEmpty(): boolean { return !!this.features.hideWhenEmpty; }
 
-    private readonly _onDidChange = new Emitter<void>();
-    readonly onDidChange: Event<void> = this._onDidChange.event;
+    private readonly onDidChangeEmitter = new Emitter<void>();
+    readonly onDidChange: Event<void> = this.onDidChangeEmitter.event;
 
     constructor(
-        private readonly sourceControlHandle: number,
         readonly handle: number,
         public provider: PluginScmProvider,
         public features: SourceControlGroupFeatures,
@@ -55,28 +60,19 @@ export class PluginScmResourceGroup implements ScmResourceGroup {
         public id: string
     ) { }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    toJSON(): any {
-        return {
-            $mid: 4,
-            sourceControlHandle: this.sourceControlHandle,
-            groupHandle: this.handle
-        };
-    }
-
     splice(start: number, deleteCount: number, toInsert: ScmResource[]): void {
         this.resources.splice(start, deleteCount, ...toInsert);
-        this._onDidSplice.fire({ start, deleteCount, toInsert });
+        this.onDidSpliceEmitter.fire({ start, deleteCount, toInsert });
     }
 
-    $updateGroup(features: SourceControlGroupFeatures): void {
+    updateGroup(features: SourceControlGroupFeatures): void {
         this.features = { ...this.features, ...features };
-        this._onDidChange.fire();
+        this.onDidChangeEmitter.fire();
     }
 
-    $updateGroupLabel(label: string): void {
+    updateGroupLabel(label: string): void {
         this.label = label;
-        this._onDidChange.fire();
+        this.onDidChangeEmitter.fire();
     }
 
     dispose(): void { }
@@ -99,39 +95,18 @@ export class PluginScmResource implements ScmResource {
     open(preserveFocus: boolean): Promise<void> {
         return this.proxy.$executeResourceCommand(this.sourceControlHandle, this.groupHandle, this.handle, preserveFocus);
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    toJSON(): any {
-        return {
-            $mid: 3,
-            sourceControlHandle: this.sourceControlHandle,
-            groupHandle: this.groupHandle,
-            handle: this.handle
-        };
-    }
 }
 
 export class PluginScmProvider implements ScmProvider {
 
-    // private static ID_HANDLE = 0;
     private _id = this.contextValue;
     get id(): string { return this._id; }
 
     readonly groups: PluginScmResourceGroup[] = [];
-    private readonly _groupsByHandle: { [handle: number]: PluginScmResourceGroup; } = Object.create(null);
+    private readonly groupsByHandle: { [handle: number]: PluginScmResourceGroup; } = Object.create(null);
 
-    // get groups(): ISequence<ISCMResourceGroup> {
-    //     return {
-    //         elements: this._groups,
-    //         onDidSplice: this._onDidSplice.event
-    //     };
-    //
-    //     // return this._groups
-    //     // .filter(g => g.resources.elements.length > 0 || !g.features.hideWhenEmpty);
-    // }
-
-    private readonly _onDidChangeResources = new Emitter<void>();
-    readonly onDidChangeResources: Event<void> = this._onDidChangeResources.event;
+    private readonly onDidChangeResourcesEmitter = new Emitter<void>();
+    readonly onDidChangeResources: Event<void> = this.onDidChangeResourcesEmitter.event;
 
     private features: SourceControlProviderFeatures = {};
 
@@ -142,17 +117,24 @@ export class PluginScmProvider implements ScmProvider {
 
     get commitTemplate(): string { return this.features.commitTemplate || ''; }
     get acceptInputCommand(): ScmCommand | undefined { return this.features.acceptInputCommand; }
-    get statusBarCommands(): ScmCommand[] | undefined { return this.features.statusBarCommands; }
+    get statusBarCommands(): ScmCommand[] | undefined {
+        const commands = this.features.statusBarCommands;
+        return commands?.map(command => {
+            const scmCommand: ScmCommand = command;
+            scmCommand.command = command.id;
+            return scmCommand;
+        });
+    }
     get count(): number | undefined { return this.features.count; }
 
-    private readonly _onDidChangeCommitTemplate = new Emitter<string>();
-    readonly onDidChangeCommitTemplate: Event<string> = this._onDidChangeCommitTemplate.event;
+    private readonly onDidChangeCommitTemplateEmitter = new Emitter<string>();
+    readonly onDidChangeCommitTemplate: Event<string> = this.onDidChangeCommitTemplateEmitter.event;
 
-    private readonly _onDidChangeStatusBarCommands = new Emitter<ScmCommand[]>();
-    get onDidChangeStatusBarCommands(): Event<ScmCommand[]> { return this._onDidChangeStatusBarCommands.event; }
+    private readonly onDidChangeStatusBarCommandsEmitter = new Emitter<ScmCommand[]>();
+    get onDidChangeStatusBarCommands(): Event<ScmCommand[]> { return this.onDidChangeStatusBarCommandsEmitter.event; }
 
-    private readonly _onDidChange = new Emitter<void>();
-    readonly onDidChange: Event<void> = this._onDidChange.event;
+    private readonly onDidChangeEmitter = new Emitter<void>();
+    readonly onDidChange: Event<void> = this.onDidChangeEmitter.event;
 
     constructor(
         private readonly proxy: ScmExt,
@@ -162,24 +144,23 @@ export class PluginScmProvider implements ScmProvider {
         private readonly _rootUri: vscodeURI | undefined
     ) { }
 
-    $updateSourceControl(features: SourceControlProviderFeatures): void {
+    updateSourceControl(features: SourceControlProviderFeatures): void {
         this.features = { ...this.features, ...features };
-        this._onDidChange.fire();
+        this.onDidChangeEmitter.fire();
 
         if (typeof features.commitTemplate !== 'undefined') {
-            this._onDidChangeCommitTemplate.fire(this.commitTemplate!);
+            this.onDidChangeCommitTemplateEmitter.fire(this.commitTemplate!);
         }
 
         if (typeof features.statusBarCommands !== 'undefined') {
-            this._onDidChangeStatusBarCommands.fire(this.statusBarCommands!);
+            this.onDidChangeStatusBarCommandsEmitter.fire(this.statusBarCommands!);
         }
     }
 
-    $registerGroups(_groups: ScmRawResourceGroup[]): void {
-        const groups = _groups.map( _group => {
-            const { handle, id, label, features } = _group;
+    registerGroups(resourceGroups: ScmRawResourceGroup[]): void {
+        const groups = resourceGroups.map( resourceGroup => {
+            const { handle, id, label, features } = resourceGroup;
             const group = new PluginScmResourceGroup(
-                this.handle,
                 handle,
                 this,
                 features,
@@ -187,38 +168,38 @@ export class PluginScmProvider implements ScmProvider {
                 id
             );
 
-            this._groupsByHandle[handle] = group;
+            this.groupsByHandle[handle] = group;
             return group;
         });
 
         this.groups.splice(this.groups.length, 0, ...groups);
     }
 
-    $updateGroup(handle: number, features: SourceControlGroupFeatures): void {
-        const group = this._groupsByHandle[handle];
+    updateGroup(handle: number, features: SourceControlGroupFeatures): void {
+        const group = this.groupsByHandle[handle];
 
         if (!group) {
             return;
         }
 
-        group.$updateGroup(features);
+        group.updateGroup(features);
     }
 
-    $updateGroupLabel(handle: number, label: string): void {
-        const group = this._groupsByHandle[handle];
+    updateGroupLabel(handle: number, label: string): void {
+        const group = this.groupsByHandle[handle];
 
         if (!group) {
             return;
         }
 
-        group.$updateGroupLabel(label);
+        group.updateGroupLabel(label);
     }
 
-    $spliceGroupResourceStates(splices: ScmRawResourceSplices[]): void {
+    spliceGroupResourceStates(splices: ScmRawResourceSplices[]): void {
         for (const splice of splices) {
             const groupHandle = splice.handle;
             const groupSlices = splice.splices;
-            const group = this._groupsByHandle[groupHandle];
+            const group = this.groupsByHandle[groupHandle];
 
             if (!group) {
                 console.warn(`SCM group ${groupHandle} not found in provider ${this.label}`);
@@ -259,182 +240,162 @@ export class PluginScmProvider implements ScmProvider {
             }
         }
 
-        this._onDidChangeResources.fire();
+        this.onDidChangeResourcesEmitter.fire();
     }
 
-    $unregisterGroup(handle: number): void {
-        const group = this._groupsByHandle[handle];
+    unregisterGroup(handle: number): void {
+        const group = this.groupsByHandle[handle];
 
         if (!group) {
             return;
         }
 
-        delete this._groupsByHandle[handle];
+        delete this.groupsByHandle[handle];
         this.groups.splice(this.groups.indexOf(group), 1);
     }
 
-    // async getOriginalResource(uri: URI): Promise<URI | null> {
-    //     if (!this.features.hasQuickDiffProvider) {
-    //         return null;
-    //     }
-    //
-    //     const result = await this.proxy.$provideOriginalResource(this.handle, uri, CancellationToken.None);
-    //     return result && URI.revive(result);
-    // }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    toJSON(): any {
-        return {
-            $mid: 5,
-            handle: this.handle
-        };
-    }
-
-    dispose(): void {
-
-    }
+    dispose(): void { }
 }
 
-// @extHostNamedCustomer(MainContext.MainThreadSCM)
 export class ScmMainImpl implements ScmMain {
 
-    private readonly _proxy: ScmExt;
+    private readonly proxy: ScmExt;
     private readonly scmService: ScmService;
-    private _repositories = new Map<number, ScmRepository>();
-    private _repositoryDisposables = new Map<number, DisposableCollection>();
-    private readonly _disposables = new DisposableCollection();
+    private repositories = new Map<number, ScmRepository>();
+    private repositoryDisposables = new Map<number, DisposableCollection>();
+    private readonly disposables = new DisposableCollection();
 
     constructor( rpc: RPCProtocol, container: interfaces.Container) {
-        this._proxy = rpc.getProxy(MAIN_RPC_CONTEXT.SCM_EXT);
+        this.proxy = rpc.getProxy(MAIN_RPC_CONTEXT.SCM_EXT);
         this.scmService = container.get(ScmService);
     }
 
     dispose(): void {
-        this._repositories.forEach(r => r.dispose());
-        this._repositories.clear();
+        this.repositories.forEach(r => r.dispose());
+        this.repositories.clear();
 
-        this._repositoryDisposables.forEach(d => d.dispose());
-        this._repositoryDisposables.clear();
+        this.repositoryDisposables.forEach(d => d.dispose());
+        this.repositoryDisposables.clear();
 
-        this._disposables.dispose();
+        this.disposables.dispose();
     }
 
     async $registerSourceControl(handle: number, id: string, label: string, rootUri: UriComponents | undefined): Promise<void> {
-        const provider = new PluginScmProvider(this._proxy, handle, id, label, rootUri ? vscodeURI.revive(rootUri) : undefined);
+        const provider = new PluginScmProvider(this.proxy, handle, id, label, rootUri ? vscodeURI.revive(rootUri) : undefined);
         const repository = this.scmService.registerScmProvider(provider, {
                 input: {
                     validator: async value => {
-                        const result = await this._proxy.$validateInput(handle, value, value.length);
+                        const result = await this.proxy.$validateInput(handle, value, value.length);
                         return result && { message: result[0], type: result[1] };
                     }
                 }
             }
         );
-        this._repositories.set(handle, repository);
+        this.repositories.set(handle, repository);
 
         const disposables = new DisposableCollection(
             this.scmService.onDidChangeSelectedRepository(r => {
                 if (r === repository) {
-                    this._proxy.$setSelectedSourceControl(handle);
+                    this.proxy.$setSelectedSourceControl(handle);
                 }
             }),
-            repository.input.onDidChange(() => this._proxy.$onInputBoxValueChange(handle, repository.input.value))
+            repository.input.onDidChange(() => this.proxy.$onInputBoxValueChange(handle, repository.input.value))
         );
 
         if (this.scmService.selectedRepository === repository) {
-            setTimeout(() => this._proxy.$setSelectedSourceControl(handle), 0);
+            setTimeout(() => this.proxy.$setSelectedSourceControl(handle), 0);
         }
 
         if (repository.input.value) {
-            setTimeout(() => this._proxy.$onInputBoxValueChange(handle, repository.input.value), 0);
+            setTimeout(() => this.proxy.$onInputBoxValueChange(handle, repository.input.value), 0);
         }
 
-        this._repositoryDisposables.set(handle, disposables);
+        this.repositoryDisposables.set(handle, disposables);
     }
 
     async $updateSourceControl(handle: number, features: SourceControlProviderFeatures): Promise<void> {
-        const repository = this._repositories.get(handle);
+        const repository = this.repositories.get(handle);
 
         if (!repository) {
             return;
         }
 
         const provider = repository.provider as PluginScmProvider;
-        provider.$updateSourceControl(features);
+        provider.updateSourceControl(features);
     }
 
     async $unregisterSourceControl(handle: number): Promise<void> {
-        const repository = this._repositories.get(handle);
+        const repository = this.repositories.get(handle);
 
         if (!repository) {
             return;
         }
 
-        this._repositoryDisposables.get(handle)!.dispose();
-        this._repositoryDisposables.delete(handle);
+        this.repositoryDisposables.get(handle)!.dispose();
+        this.repositoryDisposables.delete(handle);
 
         repository.dispose();
-        this._repositories.delete(handle);
+        this.repositories.delete(handle);
     }
 
     $registerGroups(sourceControlHandle: number, groups: ScmRawResourceGroup[], splices: ScmRawResourceSplices[]): void {
-        const repository = this._repositories.get(sourceControlHandle);
+        const repository = this.repositories.get(sourceControlHandle);
 
         if (!repository) {
             return;
         }
 
         const provider = repository.provider as PluginScmProvider;
-        provider.$registerGroups(groups);
-        provider.$spliceGroupResourceStates(splices);
+        provider.registerGroups(groups);
+        provider.spliceGroupResourceStates(splices);
     }
 
     $updateGroup(sourceControlHandle: number, groupHandle: number, features: SourceControlGroupFeatures): void {
-        const repository = this._repositories.get(sourceControlHandle);
+        const repository = this.repositories.get(sourceControlHandle);
 
         if (!repository) {
             return;
         }
 
         const provider = repository.provider as PluginScmProvider;
-        provider.$updateGroup(groupHandle, features);
+        provider.updateGroup(groupHandle, features);
     }
 
     $updateGroupLabel(sourceControlHandle: number, groupHandle: number, label: string): void {
-        const repository = this._repositories.get(sourceControlHandle);
+        const repository = this.repositories.get(sourceControlHandle);
 
         if (!repository) {
             return;
         }
 
         const provider = repository.provider as PluginScmProvider;
-        provider.$updateGroupLabel(groupHandle, label);
+        provider.updateGroupLabel(groupHandle, label);
     }
 
     $spliceResourceStates(sourceControlHandle: number, splices: ScmRawResourceSplices[]): void {
-        const repository = this._repositories.get(sourceControlHandle);
+        const repository = this.repositories.get(sourceControlHandle);
 
         if (!repository) {
             return;
         }
 
         const provider = repository.provider as PluginScmProvider;
-        provider.$spliceGroupResourceStates(splices);
+        provider.spliceGroupResourceStates(splices);
     }
 
     $unregisterGroup(sourceControlHandle: number, handle: number): void {
-        const repository = this._repositories.get(sourceControlHandle);
+        const repository = this.repositories.get(sourceControlHandle);
 
         if (!repository) {
             return;
         }
 
         const provider = repository.provider as PluginScmProvider;
-        provider.$unregisterGroup(handle);
+        provider.unregisterGroup(handle);
     }
 
     $setInputBoxValue(sourceControlHandle: number, value: string): void {
-        const repository = this._repositories.get(sourceControlHandle);
+        const repository = this.repositories.get(sourceControlHandle);
 
         if (!repository) {
             return;
@@ -444,16 +405,12 @@ export class ScmMainImpl implements ScmMain {
     }
 
     $setInputBoxPlaceholder(sourceControlHandle: number, placeholder: string): void {
-        const repository = this._repositories.get(sourceControlHandle);
+        const repository = this.repositories.get(sourceControlHandle);
 
         if (!repository) {
             return;
         }
 
         repository.input.placeholder = placeholder;
-    }
-
-    $setInputBoxVisibility(sourceControlHandle: number, visible: boolean): void {
-        //
     }
 }

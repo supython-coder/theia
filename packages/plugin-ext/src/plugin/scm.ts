@@ -1,5 +1,5 @@
 /********************************************************************************
- * Copyright (C) 2019 Red Hat, Inc. and others.
+ * Copyright (C) 2019-2021 Red Hat, Inc. and others.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0 which is available at
@@ -13,6 +13,12 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
+
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+// code copied and modified from https://github.com/microsoft/vscode/blob/1.52.1/src/vs/workbench/api/common/extHostSCM.ts
 
 import * as theia from '@theia/plugin';
 import { Emitter, Event } from '@theia/core/lib/common/event';
@@ -434,10 +440,10 @@ class SsmResourceGroupImpl implements theia.SourceControlResourceGroup {
     }
 }
 
-class ExtHostSourceControl implements theia.SourceControl {
+class SourceControlImpl implements theia.SourceControl {
 
-    private static _handlePool: number = 0;
-    private _groups: Map<GroupHandle, SsmResourceGroupImpl> = new Map<GroupHandle, SsmResourceGroupImpl>();
+    private static handlePool: number = 0;
+    private groups: Map<GroupHandle, SsmResourceGroupImpl> = new Map<GroupHandle, SsmResourceGroupImpl>();
 
     get id(): string {
         return this._id;
@@ -466,7 +472,7 @@ class ExtHostSourceControl implements theia.SourceControl {
         }
 
         this._count = count;
-        this._proxy.$updateSourceControl(this.handle, { count });
+        this.proxy.$updateSourceControl(this.handle, { count });
     }
 
     private _quickDiffProvider: theia.QuickDiffProvider | undefined = undefined;
@@ -477,7 +483,7 @@ class ExtHostSourceControl implements theia.SourceControl {
 
     set quickDiffProvider(quickDiffProvider: theia.QuickDiffProvider | undefined) {
         this._quickDiffProvider = quickDiffProvider;
-        this._proxy.$updateSourceControl(this.handle, { hasQuickDiffProvider: !!quickDiffProvider });
+        this.proxy.$updateSourceControl(this.handle, { hasQuickDiffProvider: !!quickDiffProvider });
     }
 
     private _commitTemplate: string | undefined = undefined;
@@ -492,10 +498,10 @@ class ExtHostSourceControl implements theia.SourceControl {
         }
 
         this._commitTemplate = commitTemplate;
-        this._proxy.$updateSourceControl(this.handle, { commitTemplate });
+        this.proxy.$updateSourceControl(this.handle, { commitTemplate });
     }
 
-    private _acceptInputDisposables = new DisposableCollection();
+    private acceptInputDisposables = new DisposableCollection();
     private _acceptInputCommand: theia.Command | undefined = undefined;
 
     get acceptInputCommand(): theia.Command | undefined {
@@ -503,12 +509,12 @@ class ExtHostSourceControl implements theia.SourceControl {
     }
 
     set acceptInputCommand(acceptInputCommand: theia.Command | undefined) {
-        this._acceptInputDisposables = new DisposableCollection();
+        this.acceptInputDisposables = new DisposableCollection();
 
         this._acceptInputCommand = acceptInputCommand;
 
-        const internal = this._commands.converter.toSafeCommand(acceptInputCommand, this._acceptInputDisposables);
-        this._proxy.$updateSourceControl(this.handle, { acceptInputCommand: internal });
+        const internal = this.commands.converter.toSafeCommand(acceptInputCommand, this.acceptInputDisposables);
+        this.proxy.$updateSourceControl(this.handle, { acceptInputCommand: internal });
     }
 
     private _statusBarDisposables = new DisposableCollection();
@@ -527,8 +533,8 @@ class ExtHostSourceControl implements theia.SourceControl {
 
         this._statusBarCommands = statusBarCommands;
 
-        const internal = (statusBarCommands || []).map(c => this._commands.converter.toSafeCommand(c, this._statusBarDisposables)) as Command[];
-        this._proxy.$updateSourceControl(this.handle, { statusBarCommands: internal });
+        const internal = (statusBarCommands || []).map(c => this.commands.converter.toSafeCommand(c, this._statusBarDisposables)) as Command[];
+        this.proxy.$updateSourceControl(this.handle, { statusBarCommands: internal });
     }
 
     private _selected: boolean = false;
@@ -537,35 +543,34 @@ class ExtHostSourceControl implements theia.SourceControl {
         return this._selected;
     }
 
-    private readonly _onDidChangeSelection = new Emitter<boolean>();
-    readonly onDidChangeSelection = this._onDidChangeSelection.event;
+    private readonly onDidChangeSelectionEmitter = new Emitter<boolean>();
+    readonly onDidChangeSelection = this.onDidChangeSelectionEmitter.event;
 
-    private handle: number = ExtHostSourceControl._handlePool++;
+    private handle: number = SourceControlImpl.handlePool++;
 
     constructor(
-        _extension: Plugin,
-        private _proxy: ScmMain,
-        private _commands: CommandRegistryImpl,
+        plugin: Plugin,
+        private proxy: ScmMain,
+        private commands: CommandRegistryImpl,
         private _id: string,
         private _label: string,
         private _rootUri?: theia.Uri
     ) {
-        this._inputBox = new ScmInputBoxImpl(_extension, this._proxy, this.handle);
-        this._proxy.$registerSourceControl(this.handle, _id, _label, _rootUri);
+        this._inputBox = new ScmInputBoxImpl(plugin, this.proxy, this.handle);
+        this.proxy.$registerSourceControl(this.handle, _id, _label, _rootUri);
     }
 
     private createdResourceGroups = new Map<SsmResourceGroupImpl, Disposable>();
     private updatedResourceGroups = new Set<SsmResourceGroupImpl>();
 
     createResourceGroup(id: string, label: string): SsmResourceGroupImpl {
-        const group = new SsmResourceGroupImpl(this._proxy, this._commands, this.handle, id, label);
+        const group = new SsmResourceGroupImpl(this.proxy, this.commands, this.handle, id, label);
         const disposable = group.onDidDispose(() => this.createdResourceGroups.delete(group));
         this.createdResourceGroups.set(group, disposable);
         this.eventuallyAddResourceGroups();
         return group;
     }
 
-    // @debounce(100)
     eventuallyAddResourceGroups(): void {
         const groups: ScmRawResourceGroup[] = [];
         const splices: ScmRawResourceSplices[] = [];
@@ -581,8 +586,8 @@ class ExtHostSourceControl implements theia.SourceControl {
             group.onDidDispose(() => {
                 this.updatedResourceGroups.delete(group);
                 updateListener.dispose();
-                this._groups.delete(group.handle);
-                this._proxy.$unregisterGroup(this.handle, group.handle);
+                this.groups.delete(group.handle);
+                this.proxy.$unregisterGroup(this.handle, group.handle);
             });
 
             const { handle , id, label, features } = group;
@@ -594,14 +599,13 @@ class ExtHostSourceControl implements theia.SourceControl {
                 splices.push( { handle: group.handle, splices: snapshot });
             }
 
-            this._groups.set(group.handle, group);
+            this.groups.set(group.handle, group);
         }
 
-        this._proxy.$registerGroups(this.handle, groups, splices);
+        this.proxy.$registerGroups(this.handle, groups, splices);
         this.createdResourceGroups.clear();
     }
 
-    // @debounce(100)
     eventuallyUpdateResourceStates(): void {
         const splices: ScmRawResourceSplices[] = [];
 
@@ -616,59 +620,53 @@ class ExtHostSourceControl implements theia.SourceControl {
         });
 
         if (splices.length > 0) {
-            this._proxy.$spliceResourceStates(this.handle, splices);
+            this.proxy.$spliceResourceStates(this.handle, splices);
         }
 
         this.updatedResourceGroups.clear();
     }
 
     getResourceGroup(handle: GroupHandle): SsmResourceGroupImpl | undefined {
-        return this._groups.get(handle);
+        return this.groups.get(handle);
     }
 
     setSelectionState(selected: boolean): void {
         this._selected = selected;
-        this._onDidChangeSelection.fire(selected);
+        this.onDidChangeSelectionEmitter.fire(selected);
     }
 
     dispose(): void {
-        this._acceptInputDisposables.dispose();
+        this.acceptInputDisposables.dispose();
         this._statusBarDisposables.dispose();
 
-        this._groups.forEach(group => group.dispose());
-        this._proxy.$unregisterSourceControl(this.handle);
+        this.groups.forEach(group => group.dispose());
+        this.proxy.$unregisterSourceControl(this.handle);
     }
 }
 
 export class ScmExtImpl implements ScmExt {
 
-    private static _handlePool: number = 0;
+    private static handlePool: number = 0;
 
-    private _proxy: ScmMain;
-    // private readonly _telemetry: MainThreadTelemetryShape;
-    private _sourceControls: Map<ProviderHandle, ExtHostSourceControl> = new Map<ProviderHandle, ExtHostSourceControl>();
-    private _sourceControlsByExtension: Map<string, ExtHostSourceControl[]> = new Map<string, ExtHostSourceControl[]>();
+    private proxy: ScmMain;
+    private sourceControls: Map<ProviderHandle, SourceControlImpl> = new Map<ProviderHandle, SourceControlImpl>();
+    private sourceControlsByExtension: Map<string, SourceControlImpl[]> = new Map<string, SourceControlImpl[]>();
 
-    private readonly _onDidChangeActiveProvider = new Emitter<theia.SourceControl>();
-    get onDidChangeActiveProvider(): Event<theia.SourceControl> { return this._onDidChangeActiveProvider.event; }
+    private readonly onDidChangeActiveProviderEmitter = new Emitter<theia.SourceControl>();
+    get onDidChangeActiveProvider(): Event<theia.SourceControl> { return this.onDidChangeActiveProviderEmitter.event; }
 
-    private _selectedSourceControlHandle: number | undefined;
+    private selectedSourceControlHandle: number | undefined;
 
-    constructor(
-        rpc: RPCProtocol,
-        private _commands: CommandRegistryImpl,
-        // @ILogService private readonly logService: ILogService
-    ) {
-        this._proxy = rpc.getProxy(PLUGIN_RPC_CONTEXT.SCM_MAIN);
-        // this._telemetry = mainContext.getProxy(MainContext.MainThreadTelemetry);
+    constructor( rpc: RPCProtocol, private commands: CommandRegistryImpl) {
+        this.proxy = rpc.getProxy(PLUGIN_RPC_CONTEXT.SCM_MAIN);
 
-        _commands.registerArgumentProcessor({
+        commands.registerArgumentProcessor({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             processArgument: (arg: any) => {
                 if (!ScmCommandArg.is(arg)) {
                     return arg;
                 }
-                const sourceControl = this._sourceControls.get(arg.sourceControlHandle);
+                const sourceControl = this.sourceControls.get(arg.sourceControlHandle);
                 if (!sourceControl) {
                     return undefined;
                 }
@@ -685,39 +683,25 @@ export class ScmExtImpl implements ScmExt {
     }
 
     createSourceControl(extension: Plugin, id: string, label: string, rootUri: theia.Uri | undefined): theia.SourceControl {
-        // this.logService.trace('ExtHostSCM#createSourceControl', extension.identifier.value, id, label, rootUri);
+        const handle = ScmExtImpl.handlePool++;
+        const sourceControl = new SourceControlImpl(extension, this.proxy, this.commands, id, label, rootUri);
+        this.sourceControls.set(handle, sourceControl);
 
-        // type TEvent = { extensionId: string; };
-        // type TMeta = { extensionId: { classification: 'SystemMetaData', purpose: 'FeatureInsight' }; };
-        // this._telemetry.$publicLog2<TEvent, TMeta>('api/scm/createSourceControl', {
-        //     extensionId: extension.identifier.value,
-        // });
-
-        const handle = ScmExtImpl._handlePool++;
-        const sourceControl = new ExtHostSourceControl(extension, this._proxy, this._commands, id, label, rootUri);
-        this._sourceControls.set(handle, sourceControl);
-
-        const sourceControls = this._sourceControlsByExtension.get(extension.model.id) || [];
+        const sourceControls = this.sourceControlsByExtension.get(extension.model.id) || [];
         sourceControls.push(sourceControl);
-        this._sourceControlsByExtension.set(extension.model.id, sourceControls);
+        this.sourceControlsByExtension.set(extension.model.id, sourceControls);
 
         return sourceControl;
     }
 
-    // Deprecated
     getLastInputBox(extension: Plugin): ScmInputBoxImpl | undefined {
-        // this.logService.trace('ExtHostSCM#getLastInputBox', extension.identifier.value);
-
-        const sourceControls = this._sourceControlsByExtension.get(extension.model.id);
+        const sourceControls = this.sourceControlsByExtension.get(extension.model.id);
         const sourceControl = sourceControls && sourceControls[sourceControls.length - 1];
         return sourceControl && sourceControl.inputBox;
     }
 
     $provideOriginalResource(sourceControlHandle: number, uriComponents: string, token: theia.CancellationToken): Promise<UriComponents | undefined> {
-        // const uri = URI.revive(uriComponents);
-        // this.logService.trace('ExtHostSCM#$provideOriginalResource', sourceControlHandle, uri.toString());
-
-        const sourceControl = this._sourceControls.get(sourceControlHandle);
+        const sourceControl = this.sourceControls.get(sourceControlHandle);
 
         if (!sourceControl || !sourceControl.quickDiffProvider || !sourceControl.quickDiffProvider.provideOriginalResource) {
             return Promise.resolve(undefined);
@@ -728,9 +712,7 @@ export class ScmExtImpl implements ScmExt {
     }
 
     $onInputBoxValueChange(sourceControlHandle: number, value: string): Promise<void> {
-        // this.logService.trace('ExtHostSCM#$onInputBoxValueChange', sourceControlHandle);
-
-        const sourceControl = this._sourceControls.get(sourceControlHandle);
+        const sourceControl = this.sourceControls.get(sourceControlHandle);
 
         if (!sourceControl) {
             return Promise.resolve(undefined);
@@ -741,9 +723,7 @@ export class ScmExtImpl implements ScmExt {
     }
 
     $executeResourceCommand(sourceControlHandle: number, groupHandle: number, handle: number, preserveFocus: boolean): Promise<void> {
-        // this.logService.trace('ExtHostSCM#$executeResourceCommand', sourceControlHandle, groupHandle, handle);
-
-        const sourceControl = this._sourceControls.get(sourceControlHandle);
+        const sourceControl = this.sourceControls.get(sourceControlHandle);
 
         if (!sourceControl) {
             return Promise.resolve(undefined);
@@ -759,9 +739,7 @@ export class ScmExtImpl implements ScmExt {
     }
 
     async $validateInput(sourceControlHandle: number, value: string, cursorPosition: number): Promise<[string, number] | undefined> {
-        // this.logService.trace('ExtHostSCM#$validateInput', sourceControlHandle);
-
-        const sourceControl = this._sourceControls.get(sourceControlHandle);
+        const sourceControl = this.sourceControls.get(sourceControlHandle);
 
         if (!sourceControl) {
             return Promise.resolve(undefined);
@@ -779,17 +757,15 @@ export class ScmExtImpl implements ScmExt {
     }
 
     $setSelectedSourceControl(selectedSourceControlHandle: number | undefined): Promise<void> {
-        // this.logService.trace('ExtHostSCM#$setSelectedSourceControl', selectedSourceControlHandle);
-
         if (selectedSourceControlHandle !== undefined) {
-            this._sourceControls.get(selectedSourceControlHandle)?.setSelectionState(true);
+            this.sourceControls.get(selectedSourceControlHandle)?.setSelectionState(true);
         }
 
-        if (this._selectedSourceControlHandle !== undefined) {
-            this._sourceControls.get(this._selectedSourceControlHandle)?.setSelectionState(false);
+        if (this.selectedSourceControlHandle !== undefined) {
+            this.sourceControls.get(this.selectedSourceControlHandle)?.setSelectionState(false);
         }
 
-        this._selectedSourceControlHandle = selectedSourceControlHandle;
+        this.selectedSourceControlHandle = selectedSourceControlHandle;
         return Promise.resolve(undefined);
     }
 }

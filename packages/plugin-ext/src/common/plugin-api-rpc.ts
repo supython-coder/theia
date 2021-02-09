@@ -688,13 +688,11 @@ export namespace ScmCommandArg {
 export interface ScmExt {
     createSourceControl(plugin: Plugin, id: string, label: string, rootUri?: theia.Uri): theia.SourceControl;
     getLastInputBox(plugin: Plugin): theia.SourceControlInputBox | undefined;
-    // $updateInputBox(sourceControlHandle: number, message: string): Promise<void>;
     $onInputBoxValueChange(sourceControlHandle: number, value: string): Promise<void>;
     $executeResourceCommand(sourceControlHandle: number, groupHandle: number, handle: number, preserveFocus: boolean): Promise<void>;
     $validateInput(sourceControlHandle: number, value: string, cursorPosition: number): Promise<[string, number] | undefined>;
     $setSelectedSourceControl(selectedSourceControlHandle: number | undefined): Promise<void>;
     $provideOriginalResource(sourceControlHandle: number, uri: string, token: theia.CancellationToken): Promise<UriComponents | undefined>;
-    // $setSourceControlSelection(sourceControlHandle: number, selected: boolean): Promise<void>;
 }
 
 export namespace TimelineCommandArg {
